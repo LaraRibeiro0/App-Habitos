@@ -117,7 +117,7 @@ export async function mostrar(ecra, params, aindaAtual) {
 
     <section class="cartao">
       <div class="cartao-cabeca"><h2>Resumo do período</h2>
-        ${periodos.length > 1 ? `<select id="periodo" style="width:auto" aria-label="Período">
+        ${periodos.length > 1 ? `<select id="periodo" style="width:auto" aria-label="Período" data-nao-suja>
           ${periodos.map((p, i) => `<option value="${i}">${p.atual ? 'Atual' : `${dataCurta(p.de).slice(0, 5)} → ${dataCurta(p.ate).slice(0, 5)}`}</option>`).join('')}
         </select>` : ''}</div>
       <div id="resumo"></div>

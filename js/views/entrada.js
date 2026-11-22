@@ -21,6 +21,8 @@ export async function mostrar(ecra) {
 
         <div class="cartao">
           <button class="botao botao-grande botao-google" id="google">${ICONE_GOOGLE} Entrar com Google</button>
+          ${navigator.standalone ? `<p class="suave pequeno">No iPhone, a app instalada no ecrã principal não consegue
+            receber o login da Google. Entra aqui com email e palavra-passe (podes defini-la nas Definições, no Safari).</p>` : ''}
           <div class="separador">ou com email</div>
           <form id="form-email" class="cartao" style="padding:0;border:none;box-shadow:none">
             <label class="campo"><span>Email</span>

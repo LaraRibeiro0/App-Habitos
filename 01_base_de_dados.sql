@@ -234,3 +234,14 @@ $$;
 create trigger ao_criar_utilizador
   after insert on auth.users
   for each row execute function criar_perfil_novo_utilizador();
+
+
+-- ---------------------------------------------------------------------
+-- 13. PERMISSÕES — autorizar os utilizadores com sessão iniciada a
+--     usar as tabelas. (O RLS acima continua a decidir QUE LINHAS cada
+--     pessoa vê.) Os projetos novos do Supabase já não fazem isto sozinhos.
+-- ---------------------------------------------------------------------
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to authenticated;

@@ -3,7 +3,7 @@
 //  Endereço: #/registar            → hoje
 //            #/registar/2026-11-21 → esse dia
 // =====================================================================
-import { estado, recarregarBase, ir } from '../app.js';
+import { estado, recarregarBase, ir, ui } from '../app.js';
 import * as db from '../data.js';
 import {
   $, $$, esc, hoje, somarDias, dataLonga, deIso, minutosSono, duracao, num,
@@ -65,6 +65,9 @@ export async function mostrar(ecra, params, aindaAtual) {
   const perfil = estado.perfil;
   let d = montarEstado(diaGuardado);
   let alterado = false;
+  // Marca o dia como "com alterações por guardar" (aqui e para a app,
+  // para a atualização automática não apagar o que estás a escrever).
+  const marcar = () => { alterado = true; ui.sujo = true; };
   let bebidaAtual = null;
 
   const cats = (tipo) => estado.categorias.filter((c) => c.tipo === tipo && !c.arquivada);
@@ -274,7 +277,7 @@ export async function mostrar(ecra, params, aindaAtual) {
 
   // ---------- Eventos ----------
   function ligarEventos() {
-    ecra.addEventListener('input', () => { alterado = true; }, { once: true });
+    ecra.addEventListener('input', () => marcar(), { once: true });
 
     $('#dia-anterior', ecra).addEventListener('click', () => mudarDia(somarDias(data, -1)));
     $('#dia-seguinte', ecra).addEventListener('click', () => mudarDia(somarDias(data, 1)));
@@ -285,20 +288,20 @@ export async function mostrar(ecra, params, aindaAtual) {
       const r = d.refeicoes[b.closest('.refeicao').dataset.r];
       r.categoria = r.categoria === b.dataset.categoria ? null : b.dataset.categoria;
       $$('[data-categoria]', b.parentElement).forEach((x) => x.setAttribute('aria-pressed', x.dataset.categoria === r.categoria));
-      alterado = true;
+      marcar();
     }));
     $('#mais-extra', ecra).addEventListener('click', () => {
       lerDoEcra();
       const agora = new Date();
       d.refeicoes.push({ refeicao_tipo_id: null, nome: 'Extra', extra: true, descricao: '', categoria: null,
         hora: `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}` });
-      alterado = true;
+      marcar();
       redesenhar();
     });
     $$('[data-remover-extra]', ecra).forEach((b) => b.addEventListener('click', () => {
       lerDoEcra();
       d.refeicoes.splice(Number(b.dataset.removerExtra), 1);
-      alterado = true;
+      marcar();
       redesenhar();
     }));
     $('#copiar-ontem', ecra).addEventListener('click', copiarDeOntem);
@@ -307,20 +310,20 @@ export async function mostrar(ecra, params, aindaAtual) {
     $('#mais-atividade', ecra).addEventListener('click', () => {
       lerDoEcra();
       d.atividades.push({ categoria_id: cats('atividade')[0]?.id, duracao_min: null, intensidade: 'moderada' });
-      alterado = true;
+      marcar();
       redesenhar();
     });
     $$('[data-remover-atividade]', ecra).forEach((b) => b.addEventListener('click', () => {
       lerDoEcra();
       d.atividades.splice(Number(b.dataset.removerAtividade), 1);
-      alterado = true;
+      marcar();
       redesenhar();
     }));
     $$('[data-intensidade]', ecra).forEach((b) => b.addEventListener('click', () => {
       const a = d.atividades[b.closest('[data-a]').dataset.a];
       a.intensidade = b.dataset.intensidade;
       $$('[data-intensidade]', b.parentElement).forEach((x) => x.setAttribute('aria-pressed', x === b));
-      alterado = true;
+      marcar();
     }));
     $$('[data-nova-cat]', ecra).forEach((b) => b.addEventListener('click', async () => {
       lerDoEcra();
@@ -329,7 +332,7 @@ export async function mostrar(ecra, params, aindaAtual) {
       if (!nova) return;
       if (tipo === 'bebida') bebidaAtual = nova.id;
       else d.atividades.push({ categoria_id: nova.id, duracao_min: null, intensidade: 'moderada' });
-      alterado = true;
+      marcar();
       redesenhar();
     }));
 
@@ -348,13 +351,13 @@ export async function mostrar(ecra, params, aindaAtual) {
       }
       lerDoEcra();
       d.liquidos.push({ categoria_id: bebidaAtual, quantidade_ml: ml });
-      alterado = true;
+      marcar();
       redesenhar();
     }));
     $$('[data-remover-liquido]', ecra).forEach((b) => b.addEventListener('click', () => {
       lerDoEcra();
       d.liquidos.splice(Number(b.dataset.removerLiquido), 1);
-      alterado = true;
+      marcar();
       redesenhar();
     }));
 
@@ -368,12 +371,12 @@ export async function mostrar(ecra, params, aindaAtual) {
     $$('[data-qualidade]', ecra).forEach((b) => b.addEventListener('click', () => {
       d.sono_qualidade = d.sono_qualidade === b.dataset.qualidade ? null : b.dataset.qualidade;
       $$('[data-qualidade]', ecra).forEach((x) => x.setAttribute('aria-pressed', x.dataset.qualidade === d.sono_qualidade));
-      alterado = true;
+      marcar();
     }));
 
     $$('[data-meditacao]', ecra).forEach((b) => b.addEventListener('click', () => {
       $('#meditacao', ecra).value = b.dataset.meditacao;
-      alterado = true;
+      marcar();
     }));
 
     $('#guardar', ecra).addEventListener('click', guardar);
@@ -399,7 +402,7 @@ export async function mostrar(ecra, params, aindaAtual) {
       const deOntem = montarRefeicoes(ontem.refeicoes_dia || []);
       d.refeicoes = deOntem;
       d.liquidos = (ontem.liquidos_dia || []).map(({ categoria_id, quantidade_ml }) => ({ categoria_id, quantidade_ml }));
-      alterado = true;
+      marcar();
       redesenhar();
       aviso('Copiado de ontem. Revê e guarda.');
     } catch (erro) {
@@ -445,6 +448,7 @@ export async function mostrar(ecra, params, aindaAtual) {
         liquidos: d.liquidos.map((l) => ({ categoria_id: l.categoria_id, quantidade_ml: l.quantidade_ml })),
       });
       alterado = false;
+      ui.sujo = false;
       aviso('Dia guardado');
       botao.textContent = 'Guardado ✓';
       setTimeout(() => { botao.textContent = 'Guardar dia'; botao.disabled = false; }, 1500);

@@ -68,6 +68,17 @@ export async function mostrar(ecra) {
       ${listaCategorias('bebida', 'Bebidas')}
 
       <section class="cartao">
+        <h2>Palavra-passe</h2>
+        <p class="suave pequeno">Define uma palavra-passe para entrares também com o teu email
+          (${esc(estado.user.email || '')}). No iPhone, é a forma de entrar na app instalada no ecrã principal.</p>
+        <form id="form-password" class="linha-campos">
+          <input type="password" id="nova-password" minlength="6" autocomplete="new-password"
+            placeholder="Nova palavra-passe (mín. 6)" aria-label="Nova palavra-passe" required>
+          <button class="botao" type="submit">Guardar palavra-passe</button>
+        </form>
+      </section>
+
+      <section class="cartao">
         <button class="botao botao-sec" id="sair">Terminar sessão</button>
         <a class="pequeno" href="privacidade.html">Política de privacidade</a>
       </section>`;
@@ -159,6 +170,17 @@ export async function mostrar(ecra) {
         desenhar();
       } catch (erro) { mostrarErro(erro); }
     }));
+
+    $('#form-password', ecra).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const botao = e.submitter;
+      botao.disabled = true;
+      const { error } = await db.definirPassword($('#nova-password', ecra).value);
+      botao.disabled = false;
+      if (error) return mostrarErro(error, 'Não foi possível guardar a palavra-passe');
+      $('#nova-password', ecra).value = '';
+      aviso('Palavra-passe guardada. Já podes entrar com email.');
+    });
 
     $('#sair', ecra).addEventListener('click', async () => {
       // A app volta ao ecrã de entrada sozinha quando a sessão termina.

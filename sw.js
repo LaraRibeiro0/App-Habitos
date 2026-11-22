@@ -6,7 +6,7 @@
 //  ficheiros da app; se não houver internet, usa a cópia guardada.
 //  Os pedidos ao Supabase (os teus dados) nunca são guardados aqui.
 // =====================================================================
-const CACHE = 'app-habitos-v1';
+const CACHE = 'app-habitos-v2'; // muda este nome sempre que publicares alterações
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -23,7 +23,9 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
   e.respondWith(
-    fetch(e.request)
+    // cache: 'no-cache' obriga a confirmar com o servidor se há versão nova,
+    // em vez de usar a cópia guardada pelo browser (até 10 min no GitHub Pages)
+    fetch(e.request, { cache: 'no-cache' })
       .then((resposta) => {
         const copia = resposta.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copia));

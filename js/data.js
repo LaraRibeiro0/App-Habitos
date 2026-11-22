@@ -40,6 +40,12 @@ export function criarConta(email, password) {
   });
 }
 
+// Acrescenta (ou muda) a palavra-passe da conta com sessão iniciada.
+// Serve para quem criou a conta com Google poder entrar também por email.
+export function definirPassword(password) {
+  return supa.auth.updateUser({ password });
+}
+
 export function sair() {
   return supa.auth.signOut();
 }

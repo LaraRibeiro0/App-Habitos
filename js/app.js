@@ -7,7 +7,7 @@
 import { supa } from './supa.js';
 import { APP_NOME } from './config.js';
 import * as db from './data.js';
-import { $, $$, mostrarErro } from './util.js';
+import { $, $$, mostrarErro, aviso } from './util.js';
 
 import * as ecraEntrada from './views/entrada.js';
 import * as ecraConfiguracao from './views/configuracao.js';
@@ -60,8 +60,16 @@ function lerRota() {
 
 let aMostrar = 0; // evita que um ecrã antigo, mais lento, apareça por cima do novo
 
-async function mostrar() {
+// "Sujo" = o ecrã tem alterações por guardar (algo escrito ou escolhido).
+// Os ecrãs também podem marcar isto (ex.: o registo, ao tocar num botão).
+export const ui = { sujo: false };
+
+// opcoes.silencioso: redesenha sem mostrar "A carregar…" e sem voltar ao
+// topo (usado pela atualização automática).
+async function mostrar(opcoes = {}) {
+  const silencioso = opcoes?.silencioso === true;
   const meu = ++aMostrar;
+  ui.sujo = false;
   const ecra = $('#ecra');
   const comSessao = Boolean(estado.user);
   const configurado = Boolean(estado.perfil?.configurado);
@@ -76,11 +84,13 @@ async function mostrar() {
     const { rota, params } = lerRota();
     const modulo = ROTAS[rota] || ecraInicio;
     $$('#nav a').forEach((a) => a.classList.toggle('ativo', a.dataset.rota === rota));
-    ecra.innerHTML = '<p class="a-carregar">A carregar…</p>';
+    const y = window.scrollY;
+    if (!silencioso) ecra.innerHTML = '<p class="a-carregar">A carregar…</p>';
     await modulo.mostrar(ecra, params, () => meu === aMostrar);
-    window.scrollTo(0, 0);
+    window.scrollTo(0, silencioso ? y : 0);
   } catch (erro) {
     if (meu !== aMostrar) return;
+    if (silencioso) throw erro; // a atualização automática trata o erro
     mostrarErro(erro, 'Algo correu mal ao abrir este ecrã');
     ecra.innerHTML = `<div class="cartao"><h2>Não foi possível carregar</h2>
       <p class="suave">Verifica a ligação à internet e tenta de novo.</p>
@@ -126,6 +136,77 @@ async function arrancar() {
   });
 
   window.addEventListener('hashchange', mostrar);
+  ligarAtualizacao();
+}
+
+// =====================================================================
+//  Atualização dos dados
+//  No telemóvel, a app instalada fica "adormecida" em segundo plano e
+//  não sabe que os dados mudaram noutro dispositivo. Por isso voltamos
+//  a ler os dados do Supabase:
+//    - quando se volta à app;
+//    - a cada 30 segundos, enquanto está visível;
+//    - no botão ↻ do cabeçalho.
+// =====================================================================
+const INTERVALO_MS = 30_000;
+let aAtualizar = false;
+let ultimaAtualizacao = Date.now();
+
+// Há um formulário ou janela aberta com coisas por guardar?
+function haFormularioAberto() {
+  if ($('.janela-fundo')) return true;                    // janela (modal) aberta
+  const ativo = document.activeElement;
+  if (ativo?.matches?.('input, textarea, select') && $('#ecra').contains(ativo)) return true; // a escrever
+  return ui.sujo;                                          // alterações por guardar
+}
+
+export async function atualizar({ manual = false } = {}) {
+  if (aAtualizar || !estado.user || !estado.perfil?.configurado) return;
+  // Evita duas atualizações automáticas seguidas (ex.: visibilitychange + pageshow)
+  if (!manual && Date.now() - ultimaAtualizacao < 2000) return;
+
+  aAtualizar = true;
+  const botao = $('#atualizar');
+  botao?.classList.add('a-girar');
+  try {
+    await recarregarBase();             // perfil, categorias, refeições
+    const bloqueado = haFormularioAberto();
+    if (!bloqueado) await mostrar({ silencioso: true }); // volta a ler os dados do ecrã
+    ultimaAtualizacao = Date.now();
+    if (manual) {
+      aviso(bloqueado
+        ? 'Dados atualizados. Guarda ou fecha o que estás a editar para veres o ecrã atualizado.'
+        : 'Dados atualizados');
+    }
+  } catch (erro) {
+    if (manual) mostrarErro(erro, 'Não foi possível atualizar');
+    else console.warn('Atualização automática falhou:', erro);
+  } finally {
+    aAtualizar = false;
+    botao?.classList.remove('a-girar');
+  }
+}
+
+function ligarAtualizacao() {
+  // Qualquer coisa escrita no ecrã conta como "alterações por guardar"
+  // (exceto controlos marcados com data-nao-suja, como o filtro de período)
+  const marcar = (e) => { if (!e.target.closest('[data-nao-suja]')) ui.sujo = true; };
+  $('#ecra').addEventListener('input', marcar);
+  $('#ecra').addEventListener('change', marcar);
+
+  // Quando se volta à app
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') atualizar();
+  });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) atualizar(); });
+
+  // A cada 30 segundos, só com a app visível
+  setInterval(() => {
+    if (document.visibilityState === 'visible') atualizar();
+  }, INTERVALO_MS);
+
+  // Botão ↻
+  $('#atualizar').addEventListener('click', () => atualizar({ manual: true }));
 }
 
 arrancar();

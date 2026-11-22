@@ -141,6 +141,10 @@ a { color: var(--destaque); }
   flex: none;
 }
 .botao-icone:hover { background: var(--superficie-2); color: var(--texto); }
+.topo-acoes { display: flex; align-items: center; gap: 4px; }
+/* Botão ↻ a girar enquanto atualiza */
+.a-girar svg { animation: girar 0.8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
 
 /* ---------- Navegação de baixo ---------- */
 .nav {
