@@ -6,7 +6,7 @@
 //  ficheiros da app; se não houver internet, usa a cópia guardada.
 //  Os pedidos ao Supabase (os teus dados) nunca são guardados aqui.
 // =====================================================================
-const CACHE = 'app-habitos-v2'; // muda este nome sempre que publicares alterações
+const CACHE = 'app-habitos-v4'; // muda este nome sempre que publicares alterações
 
 self.addEventListener('install', () => self.skipWaiting());
 

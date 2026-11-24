@@ -5,7 +5,7 @@
 import { estado } from '../app.js';
 import * as db from '../data.js';
 import * as st from '../stats.js';
-import { esc, hoje, somarDias, inicioSemana, dataLonga, dataCurta, diasEntre, duracao, num } from '../util.js';
+import { esc, iso, hoje, somarDias, inicioSemana, dataLonga, dataCurta, diasEntre, duracao, num } from '../util.js';
 
 // Pequeno gráfico de linha do peso (SVG desenhado à mão).
 function sparkline(pesagens) {
@@ -30,10 +30,11 @@ export async function mostrar(ecra, _params, aindaAtual) {
   const hj = hoje();
   const de = somarDias(inicioSemana(hj), -90);
 
-  const [dias, primeira, consultas] = await Promise.all([
+  const [dias, primeira, consultas, tarefas] = await Promise.all([
     db.carregarPeriodo(de, hj),
     perfil.peso_objetivo != null ? db.primeiraPesagem() : null,
     perfil.tem_nutricionista ? db.listarConsultas() : [],
+    db.listarTarefas(),
   ]);
   if (!aindaAtual()) return;
 
@@ -54,6 +55,13 @@ export async function mostrar(ecra, _params, aindaAtual) {
   const proxima = consultas.find((c) => c.proxima_data)?.proxima_data;
   const diasProxima = proxima ? diasEntre(hj, proxima) : null;
 
+  const habitos = estado.categorias.filter((c) => c.tipo === 'habito' && !c.arquivada);
+  const diasSemana = diasEntre(semana.de, hj) + 1; // dias desta semana até hoje
+  // Tarefas: em aberto, atrasadas, e feitas esta semana
+  const abertas = tarefas.filter((t) => t.estado === 'por_fazer' || t.estado === 'a_fazer');
+  const atrasadas = abertas.filter((t) => t.data && t.data < hj).length;
+  const paraHoje = abertas.filter((t) => t.data === hj).length;
+  const feitasSemana = tarefas.filter((t) => t.estado === 'feita' && iso(new Date(t.atualizado_em)) >= semana.de).length;
   const nome = perfil.nome?.split(' ')[0];
   const ref = semana.refeicoes;
   const pct = (n) => (ref.total ? (n / ref.total) * 100 : 0);
@@ -142,6 +150,25 @@ export async function mostrar(ecra, _params, aindaAtual) {
         <div class="metrica-valor">${seq.registo} <small>${seq.registo === 1 ? 'dia' : 'dias'} a registar</small></div>
         <span class="suave pequeno">${seq.plano} ${seq.plano === 1 ? 'dia seguido' : 'dias seguidos'} dentro do plano</span>
       </div>
+
+      <a class="cartao metrica metrica-larga" href="#/tarefas" style="text-decoration:none;color:inherit">
+        <span class="rotulo">Tarefas</span>
+        <div class="metrica-valor">${abertas.length} <small>em aberto${paraHoje ? ` · ${paraHoje} para hoje` : ''}</small></div>
+        <span class="suave pequeno">${feitasSemana} ${feitasSemana === 1 ? 'feita' : 'feitas'} esta semana${
+          atrasadas ? ` · <span style="color:var(--livre)">${atrasadas} ${atrasadas === 1 ? 'atrasada' : 'atrasadas'}</span>` : ''}</span>
+      </a>
+
+      ${habitos.length ? `
+      <div class="cartao metrica metrica-larga">
+        <span class="rotulo">Outros hábitos</span>
+        <div class="contagens">
+          ${habitos.map((h) => {
+            const n = semana.porHabito[h.id] || 0;
+            return `<div class="contagem"><span><span class="ponto" style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;background:${esc(h.cor)}"></span>${esc(h.nome)}</span>
+              <strong>${n} de ${diasSemana} ${diasSemana === 1 ? 'dia' : 'dias'}</strong></div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
 
       ${perfil.acompanha_meditacao ? `
       <div class="cartao metrica">

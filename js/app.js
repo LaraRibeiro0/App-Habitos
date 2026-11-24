@@ -16,6 +16,7 @@ import * as ecraRegistar from './views/registar.js';
 import * as ecraCalendario from './views/calendario.js';
 import * as ecraConsultas from './views/consultas.js';
 import * as ecraDefinicoes from './views/definicoes.js';
+import * as ecraTarefas from './views/tarefas.js';
 
 // Estado partilhado por todos os ecrãs.
 export const estado = {
@@ -29,6 +30,7 @@ const ROTAS = {
   inicio: ecraInicio,
   registar: ecraRegistar,
   calendario: ecraCalendario,
+  tarefas: ecraTarefas,
   consultas: ecraConsultas,
   definicoes: ecraDefinicoes,
 };

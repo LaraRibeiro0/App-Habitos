@@ -161,6 +161,7 @@ a { color: var(--destaque); }
 }
 .nav a {
   flex: 1;
+  min-width: 0;
   max-width: 140px;
   height: var(--altura-nav);
   display: grid;
@@ -385,6 +386,27 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--d
   bottom: calc(var(--altura-nav) + env(safe-area-inset-bottom, 0px) + 8px);
   z-index: 5;
 }
+
+/* ---------- Tarefas ---------- */
+.tarefa { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--linha); }
+.tarefa:first-of-type { border-top: none; padding-top: 0; }
+.tarefa-cabeca { display: flex; align-items: center; gap: 8px; }
+.tarefa-titulo {
+  appearance: none; background: none; border: none; padding: 4px 0; margin: 0;
+  font: inherit; font-weight: 600; color: var(--texto); text-align: left;
+  flex: 1; min-width: 0; cursor: pointer; overflow-wrap: anywhere;
+}
+.tarefa .botao-icone { width: 32px; height: 32px; font-size: 1rem; color: var(--texto-suave); }
+.estado-feita .tarefa-titulo { text-decoration: line-through; color: var(--texto-suave); }
+.estado-nao_feita .tarefa-titulo { color: var(--texto-suave); }
+.tarefa-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.85rem; }
+.tarefa-data { font-weight: 500; color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+.tarefa-data.atrasada { color: var(--livre); }
+.segmentos-tarefa button { font-size: 0.8rem; padding: 6px 4px; min-height: 36px; }
+.segmentos button.est-a_fazer[aria-pressed="true"] { background: var(--destaque-fundo); border-color: var(--destaque); }
+.segmentos button.est-feita[aria-pressed="true"] { background: var(--plano-fundo); border-color: var(--plano); }
+.segmentos button.est-nao_feita[aria-pressed="true"] { background: var(--livre-fundo); border-color: var(--livre); }
+.segmentos button.est-por_fazer[aria-pressed="true"] { background: var(--superficie-2); border-color: var(--texto-suave); }
 
 /* ---------- Calendário ---------- */
 .cal-cabeca { display: flex; align-items: center; justify-content: space-between; }

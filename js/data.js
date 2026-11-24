@@ -98,10 +98,20 @@ export async function atualizarCategoria(id, campos) {
   return ok(await supa.from('categorias').update(campos).eq('id', id).select().single());
 }
 
+// Apaga uma categoria e todos os registos dela nos dias anteriores.
+// (As atividades e os líquidos têm de ser apagados primeiro, porque a base
+//  de dados não deixa apagar uma categoria que ainda esteja a ser usada.)
+export async function apagarCategoria(id) {
+  ok(await supa.from('atividades_dia').delete().eq('categoria_id', id));
+  ok(await supa.from('liquidos_dia').delete().eq('categoria_id', id));
+  ok(await supa.from('habitos_dia').delete().eq('categoria_id', id));
+  ok(await supa.from('categorias').delete().eq('id', id));
+}
+
 // ---------- Dias ----------
 // Um dia vem sempre com as suas refeições, atividades e líquidos
 // (o Supabase junta-os através das chaves estrangeiras).
-const SELECT_DIA = '*, refeicoes_dia(*), atividades_dia(*), liquidos_dia(*)';
+const SELECT_DIA = '*, refeicoes_dia(*), atividades_dia(*), liquidos_dia(*), habitos_dia(*)';
 
 export async function carregarDia(data) {
   return ok(await supa.from('dias').select(SELECT_DIA).eq('data', data).maybeSingle());
@@ -126,7 +136,7 @@ export async function pesagensDesde(de) {
 
 // Guarda o dia inteiro: primeiro o "cabeçalho" (tabela dias), depois
 // substitui as refeições, atividades e líquidos desse dia.
-export async function guardarDia(userId, data, { campos, refeicoes, atividades, liquidos }) {
+export async function guardarDia(userId, data, { campos, refeicoes, atividades, liquidos, habitos = [] }) {
   const dia = ok(await supa.from('dias')
     .upsert({ user_id: userId, data, ...campos, atualizado_em: new Date().toISOString() },
       { onConflict: 'user_id,data' })
@@ -134,13 +144,14 @@ export async function guardarDia(userId, data, { campos, refeicoes, atividades, 
 
   // Apagar e voltar a inserir é a forma mais simples de refletir
   // linhas acrescentadas, alteradas e removidas no ecrã.
-  for (const tabela of ['refeicoes_dia', 'atividades_dia', 'liquidos_dia']) {
+  for (const tabela of ['refeicoes_dia', 'atividades_dia', 'liquidos_dia', 'habitos_dia']) {
     ok(await supa.from(tabela).delete().eq('dia_id', dia.id));
   }
   const comDia = (linhas) => linhas.map((l) => ({ ...l, dia_id: dia.id, user_id: userId }));
   if (refeicoes.length) ok(await supa.from('refeicoes_dia').insert(comDia(refeicoes)));
   if (atividades.length) ok(await supa.from('atividades_dia').insert(comDia(atividades)));
   if (liquidos.length) ok(await supa.from('liquidos_dia').insert(comDia(liquidos)));
+  if (habitos.length) ok(await supa.from('habitos_dia').insert(comDia(habitos)));
   return dia;
 }
 
@@ -177,4 +188,30 @@ export async function guardarConsulta(userId, consulta, medidas = []) {
 
 export async function apagarConsulta(id) {
   ok(await supa.from('consultas').delete().eq('id', id));
+}
+
+// ---------- Tarefas (to-do list) ----------
+export async function listarTarefas() {
+  return ok(await supa.from('tarefas').select('*').order('criado_em'));
+}
+
+// Tarefas com data entre duas datas (para o calendário e o registo do dia)
+export async function tarefasEntre(de, ate) {
+  return ok(await supa.from('tarefas').select('*').gte('data', de).lte('data', ate).order('criado_em'));
+}
+
+export async function criarTarefa(userId, { titulo, data, notas }) {
+  return ok(await supa.from('tarefas')
+    .insert({ user_id: userId, titulo: titulo.trim(), estado: 'por_fazer', data: data || null, notas: notas || null })
+    .select().single());
+}
+
+export async function atualizarTarefa(id, campos) {
+  return ok(await supa.from('tarefas')
+    .update({ ...campos, atualizado_em: new Date().toISOString() })
+    .eq('id', id).select().single());
+}
+
+export async function apagarTarefa(id) {
+  ok(await supa.from('tarefas').delete().eq('id', id));
 }

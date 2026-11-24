@@ -103,6 +103,8 @@ export async function mostrar(ecra, params, aindaAtual) {
         <div class="contagem"><span>Líquidos por dia</span><strong>${r.liquidosMedio != null ? num(r.liquidosMedio / 1000, 2) + ' L' : '—'}</strong></div>
         ${perfil.acompanha_meditacao ? `<div class="contagem"><span>Meditação</span><strong>${num(r.meditacaoPorSemana)} dias/semana</strong></div>` : ''}
         ${perfil.acompanha_leitura ? `<div class="contagem"><span>Leitura</span><strong>${num(r.leituraPorSemana)} dias/semana</strong></div>` : ''}
+        ${estado.categorias.filter((c) => c.tipo === 'habito' && !c.arquivada).map((h) =>
+          `<div class="contagem"><span>${esc(h.nome)}</span><strong>${r.porHabito[h.id] || 0} de ${n} dias</strong></div>`).join('')}
         <div class="contagem"><span>Peso (pesagens em casa)</span><strong>${varPeso != null ? `${varPeso > 0 ? '+' : ''}${num(varPeso)} kg` : '—'}</strong></div>
       </div>`;
   }

@@ -37,6 +37,7 @@ site/
         ├── calendario.js   Calendário com filtros
         ├── consultas.js    Consultas e resumo do período
         ├── definicoes.js   Definições
+        ├── tarefas.js      Tarefas (to-do list)
         └── partes.js       Pedaços partilhados entre ecrãs
 ```
 
@@ -50,3 +51,11 @@ site/
 ## Mudar o nome da app
 
 Muda `APP_NOME` em `js/config.js`, o `<title>` em `index.html` e `name`/`short_name` em `manifest.webmanifest`.
+
+## Base de dados
+
+- `01_base_de_dados.sql`: cria as tabelas (corre-se uma vez, num projeto novo).
+- `02_habitos.sql`: acrescenta os "Outros hábitos" (suplementos, etc.).
+- `03_tarefas.sql`: acrescenta as Tarefas (to-do list).
+
+Cada script corre-se uma vez, **antes** de publicar a versão da app que o usa.

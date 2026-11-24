@@ -4,6 +4,7 @@
 //            #/registar/2026-11-21 → esse dia
 // =====================================================================
 import { estado, recarregarBase, ir, ui } from '../app.js';
+import { htmlTarefa, ligarTarefas } from './tarefas.js';
 import * as db from '../data.js';
 import {
   $, $$, esc, hoje, somarDias, dataLonga, deIso, minutosSono, duracao, num,
@@ -46,6 +47,7 @@ function montarEstado(dia) {
     refeicoes: montarRefeicoes(dia?.refeicoes_dia || []),
     atividades: (dia?.atividades_dia || []).map((a) => ({ ...a })),
     liquidos: (dia?.liquidos_dia || []).map((l) => ({ ...l })),
+    habitos: new Set((dia?.habitos_dia || []).map((h) => h.categoria_id)),
     sono_deitar: (dia?.sono_deitar || '').slice(0, 5),
     sono_acordar: (dia?.sono_acordar || '').slice(0, 5),
     sono_qualidade: dia?.sono_qualidade || null,
@@ -59,7 +61,7 @@ function montarEstado(dia) {
 
 export async function mostrar(ecra, params, aindaAtual) {
   const data = /^\d{4}-\d{2}-\d{2}$/.test(params[0] || '') ? params[0] : hoje();
-  const diaGuardado = await db.carregarDia(data);
+  const [diaGuardado, tarefasDia] = await Promise.all([db.carregarDia(data), db.tarefasEntre(data, data)]);
   if (!aindaAtual()) return;
 
   const perfil = estado.perfil;
@@ -171,6 +173,19 @@ export async function mostrar(ecra, params, aindaAtual) {
         </div>
       </section>
 
+      <section class="cartao" id="bloco-tarefas"></section>
+
+      <section class="cartao" id="bloco-habitos">
+        <h2>Outros hábitos</h2>
+        ${cats('habito').length ? `
+          <p class="suave pequeno">Toca nos que fizeste hoje.</p>
+          <div class="fichas" role="group" aria-label="Outros hábitos">
+            ${cats('habito').map((h) => `<button type="button" class="ficha" data-habito="${h.id}" aria-pressed="${d.habitos.has(h.id)}">
+              <span class="ponto" style="background:${esc(h.cor)}"></span>${esc(h.nome)}</button>`).join('')}
+          </div>` : '<p class="suave pequeno">Acrescenta suplementos ou outros hábitos diários que queres acompanhar, por exemplo creatina ou vitaminas.</p>'}
+        <div><button type="button" class="botao botao-texto" data-nova-cat="habito">+ Novo hábito</button></div>
+      </section>
+
       <section class="cartao" id="bloco-liquidos">
         <h2>Líquidos</h2>
         <div id="liquidos">${htmlLiquidos()}</div>
@@ -221,6 +236,7 @@ export async function mostrar(ecra, params, aindaAtual) {
         <button class="botao botao-grande" id="guardar">Guardar dia</button>
       </div>`;
     ligarEventos();
+    desenharTarefas();
   }
 
   // ---------- Ler o que está no ecrã para o estado "d" ----------
@@ -257,7 +273,7 @@ export async function mostrar(ecra, params, aindaAtual) {
 
   async function novaCategoria(tipo) {
     const resp = await janela({
-      titulo: tipo === 'bebida' ? 'Nova bebida' : 'Nova atividade',
+      titulo: { bebida: 'Nova bebida', atividade: 'Nova atividade', habito: 'Novo hábito' }[tipo],
       campos: [
         { id: 'nome', rotulo: 'Nome', obrigatorio: true },
         { id: 'cor', rotulo: 'Cor no calendário', tipo: 'cor', valor: CORES[estado.categorias.length % CORES.length] },
@@ -273,6 +289,26 @@ export async function mostrar(ecra, params, aindaAtual) {
       mostrarErro(erro, erro.code === '23505' ? 'Já existe uma com esse nome' : 'Não foi possível criar');
       return null;
     }
+  }
+
+  // ---------- Tarefas deste dia ----------
+  // Guardam-se logo ao tocar (não esperam pelo "Guardar dia").
+  function desenharTarefas() {
+    const caixa = $('#bloco-tarefas', ecra);
+    caixa.innerHTML = `
+      <div class="cartao-cabeca"><h2>Tarefas</h2><a class="botao botao-texto" href="#/tarefas">Ver todas</a></div>
+      ${tarefasDia.length ? tarefasDia.map((t) => htmlTarefa(t, { comData: false })).join('')
+        : '<p class="suave pequeno">Sem tarefas com data neste dia.</p>'}
+      <div><button type="button" class="botao botao-texto" id="mais-tarefa">+ Tarefa para este dia</button></div>`;
+    ligarTarefas(caixa, tarefasDia, desenharTarefas);
+    $('#mais-tarefa', caixa).addEventListener('click', async () => {
+      const resp = await janela({ titulo: 'Nova tarefa', campos: [{ id: 'titulo', rotulo: 'O que precisas de fazer?', obrigatorio: true }], botaoOk: 'Adicionar' });
+      if (!resp?.titulo?.trim()) return;
+      try {
+        tarefasDia.push(await db.criarTarefa(estado.user.id, { titulo: resp.titulo, data }));
+        desenharTarefas();
+      } catch (erro) { mostrarErro(erro, 'Não foi possível adicionar'); }
+    });
   }
 
   // ---------- Eventos ----------
@@ -331,9 +367,18 @@ export async function mostrar(ecra, params, aindaAtual) {
       const nova = await novaCategoria(tipo);
       if (!nova) return;
       if (tipo === 'bebida') bebidaAtual = nova.id;
-      else d.atividades.push({ categoria_id: nova.id, duracao_min: null, intensidade: 'moderada' });
+      else if (tipo === 'habito') d.habitos.add(nova.id);
+      else if (tipo === 'atividade') d.atividades.push({ categoria_id: nova.id, duracao_min: null, intensidade: 'moderada' });
       marcar();
       redesenhar();
+    }));
+
+    // Outros hábitos: tocar liga/desliga
+    $$('[data-habito]', ecra).forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.habito;
+      if (d.habitos.has(id)) d.habitos.delete(id); else d.habitos.add(id);
+      b.setAttribute('aria-pressed', d.habitos.has(id));
+      marcar();
     }));
 
     // Líquidos
@@ -402,6 +447,7 @@ export async function mostrar(ecra, params, aindaAtual) {
       const deOntem = montarRefeicoes(ontem.refeicoes_dia || []);
       d.refeicoes = deOntem;
       d.liquidos = (ontem.liquidos_dia || []).map(({ categoria_id, quantidade_ml }) => ({ categoria_id, quantidade_ml }));
+      d.habitos = new Set((ontem.habitos_dia || []).map((h) => h.categoria_id));
       marcar();
       redesenhar();
       aviso('Copiado de ontem. Revê e guarda.');
@@ -446,6 +492,7 @@ export async function mostrar(ecra, params, aindaAtual) {
           intensidade: a.intensidade || null,
         })),
         liquidos: d.liquidos.map((l) => ({ categoria_id: l.categoria_id, quantidade_ml: l.quantidade_ml })),
+        habitos: [...d.habitos].map((id) => ({ categoria_id: id })),
       });
       alterado = false;
       ui.sujo = false;

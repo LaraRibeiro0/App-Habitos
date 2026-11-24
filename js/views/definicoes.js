@@ -22,6 +22,7 @@ export async function mostrar(ecra) {
             <span class="botoes">
               <button class="botao botao-texto" data-editar="${c.id}">Editar</button>
               <button class="botao botao-texto" data-arquivar="${c.id}">${c.arquivada ? 'Reativar' : 'Arquivar'}</button>
+              <button class="botao botao-texto" data-apagar="${c.id}" style="color:var(--perigo)">Apagar</button>
             </span>
           </div>`).join('') : '<p class="suave pequeno">Nenhuma ainda.</p>'}
       </section>`;
@@ -66,6 +67,7 @@ export async function mostrar(ecra) {
 
       ${listaCategorias('atividade', 'Atividades')}
       ${listaCategorias('bebida', 'Bebidas')}
+      ${listaCategorias('habito', 'Outros hábitos')}
 
       <section class="cartao">
         <h2>Palavra-passe</h2>
@@ -134,7 +136,7 @@ export async function mostrar(ecra) {
     $$('[data-nova]', ecra).forEach((b) => b.addEventListener('click', async () => {
       const tipo = b.dataset.nova;
       const resp = await janela({
-        titulo: tipo === 'bebida' ? 'Nova bebida' : 'Nova atividade',
+        titulo: { bebida: 'Nova bebida', atividade: 'Nova atividade', habito: 'Novo hábito' }[tipo],
         campos: [{ id: 'nome', rotulo: 'Nome', obrigatorio: true },
           { id: 'cor', rotulo: 'Cor no calendário', tipo: 'cor', valor: CORES[estado.categorias.length % CORES.length] }],
         botaoOk: 'Criar',
@@ -169,6 +171,22 @@ export async function mostrar(ecra) {
         aviso(c.arquivada ? `${c.nome} reativada` : `${c.nome} arquivada; os registos antigos mantêm-se`);
         desenhar();
       } catch (erro) { mostrarErro(erro); }
+    }));
+
+    $$('[data-apagar]', ecra).forEach((b) => b.addEventListener('click', async () => {
+      const c = estado.categorias.find((x) => x.id === b.dataset.apagar);
+      const sim = await janela({
+        titulo: `Apagar ${c.nome}?`,
+        texto: `Os registos de ${c.nome} em dias anteriores também são apagados, e não dá para desfazer. Se só queres que deixe de aparecer, usa Arquivar.`,
+        botaoOk: 'Apagar', perigo: true,
+      });
+      if (!sim) return;
+      try {
+        await db.apagarCategoria(c.id);
+        await recarregarBase();
+        aviso(`${c.nome} apagada`);
+        desenhar();
+      } catch (erro) { mostrarErro(erro, 'Não foi possível apagar'); }
     }));
 
     $('#form-password', ecra).addEventListener('submit', async (e) => {

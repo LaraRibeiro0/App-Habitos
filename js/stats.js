@@ -65,6 +65,12 @@ export function resumo(dias, perfil, nDias) {
     p.minutos += a.duracao_min || 0;
   }
 
+  // Outros hábitos: { categoria_id: número de dias cumpridos }
+  const porHabito = {};
+  for (const h of dias.flatMap((d) => d.habitos_dia || [])) {
+    porHabito[h.categoria_id] = (porHabito[h.categoria_id] || 0) + 1;
+  }
+
   const diasMeditacao = dias.filter((d) => d.meditacao_min > 0);
   const diasLeitura = dias.filter((d) => d.leitura_min > 0);
   const pesagens = dias.filter((d) => d.peso != null).sort((a, b) => (a.data < b.data ? -1 : 1));
@@ -75,6 +81,7 @@ export function resumo(dias, perfil, nDias) {
     treinos: atividades.length,
     treinosPorSemana: atividades.length / semanas,
     porAtividade,
+    porHabito,
     refeicoes: contarRefeicoes(dias),
     sonoMedio: media(noites),
     noites: noites.length,
